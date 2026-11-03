@@ -5,6 +5,7 @@ from digraph import Digraph, random_digraph
 from kosaraju import components, kosaraju
 from generator import random_strongly_connected, random_weights
 from bellman_ford import bellman_ford, path_to, INF
+from Johnson import johnson
 
 
 def parse_args():
@@ -56,6 +57,44 @@ def print_weighted(g, weights):
     print()
 
 
+def print_distance_matrix(d_matrix):
+    print("Macierz najkrótszych odległości D (Johnson):")
+    for row in d_matrix:
+        print(" ".join(f"{x:>4}" if x != INF else " inf" for x in row))
+    print()
+
+
+def run_weighted_algorithms(graph, weights, s):
+    if not 1 <= s <= graph.n:
+        print(f"\nPomijam zad. 3: -s musi należeć do 1..{graph.n}")
+        return
+
+    print_weighted(graph, weights)
+
+    dist, pred, cycle = bellman_ford(graph, weights, s)
+    if cycle is not None:
+        total = sum(weights[(cycle[i], cycle[i + 1])] for i in range(len(cycle) - 1))
+        print("Wykryto ujemny cykl osiągalny ze źródła – najkrótsze ścieżki nie istnieją.")
+        print("Cykl: " + " -> ".join(map(str, cycle)) + f"  (waga = {total})")
+    else:
+        print(f"Najkrótsze ścieżki ze źródła s = {s}:")
+        for v in range(1, graph.n + 1):
+            if dist[v] == INF:
+                print(f"  {s} -> {v}: brak ścieżki")
+            else:
+                path = " -> ".join(map(str, path_to(pred, s, v)))
+                print(f"  {s} -> {v}: d = {dist[v]:>4},  ścieżka: {path}")
+
+    print("\n" + "=" * 50)
+    print("Algorytm Johnsona (wszystkie pary)")
+    print("=" * 50 + "\n")
+    try:
+        d_matrix = johnson(graph, weights)
+        print_distance_matrix(d_matrix)
+    except ValueError as err:
+        print(str(err))
+
+
 def main():
     args = parse_args()
 
@@ -80,37 +119,28 @@ def main():
     print()
     print("Graf jest silnie spójny" if len(groups) == 1 else "Graf nie jest silnie spójny")
 
-    if args.n is None or args.p is None:
-        return  
-    if not 1 <= args.s <= args.n:
-        print(f"\nPomijam zad. 3: -s musi należeć do 1..{args.n}")
-        return
+    weighted_graph = None
+    header = None
 
-    print("\n" + "=" * 50)
-    print("losowy silnie spójny digraf z wagami + Bellman-Ford")
-    print("=" * 50 + "\n")
+    if args.input is not None:
+        weighted_graph = g
+        header = "graf z pliku + losowe wagi + Bellman-Ford"
+    else:
+        weighted_graph, attempts = random_strongly_connected(args.n, args.p)
+        header = "losowy silnie spójny digraf z wagami + Bellman-Ford"
+        print("\n" + "=" * 50)
+        print(header)
+        print("=" * 50 + "\n")
+        print(f"Digraf silnie spójny: n = {weighted_graph.n}, liczba łuków = {len(weighted_graph.edges())} "
+              f"(wylosowano w {attempts} próbach)\n")
 
-    gs, attempts = random_strongly_connected(args.n, args.p)
-    print(f"Digraf silnie spójny: n = {gs.n}, liczba łuków = {len(gs.edges())} "
-          f"(wylosowano w {attempts} próbach)\n")
+    if args.input is not None:
+        print("\n" + "=" * 50)
+        print(header)
+        print("=" * 50 + "\n")
 
-    weights = random_weights(gs)
-    print_weighted(gs, weights)
-
-    dist, pred, cycle = bellman_ford(gs, weights, args.s)
-    if cycle is not None:
-        total = sum(weights[(cycle[i], cycle[i + 1])] for i in range(len(cycle) - 1))
-        print("Wykryto ujemny cykl osiągalny ze źródła – najkrótsze ścieżki nie istnieją.")
-        print("Cykl: " + " -> ".join(map(str, cycle)) + f"  (waga = {total})")
-        return
-
-    print(f"Najkrótsze ścieżki ze źródła s = {args.s}:")
-    for v in range(1, gs.n + 1):
-        if dist[v] == INF:
-            print(f"  {args.s} -> {v}: brak ścieżki")
-        else:
-            path = " -> ".join(map(str, path_to(pred, args.s, v)))
-            print(f"  {args.s} -> {v}: d = {dist[v]:>4},  ścieżka: {path}")
+    weights = random_weights(weighted_graph)
+    run_weighted_algorithms(weighted_graph, weights, args.s)
 
 
 if __name__ == "__main__":
